@@ -237,9 +237,9 @@ static void XCInstallPrefsGesture(void) {
 
 // AFNetworking 走的是这个 5 参数版本
 - (NSURLSessionDataTask *)dataTaskWithRequest:(NSURLRequest *)request
-                               uploadProgress:(void (^ _Nullable)(int64_t, int64_t, int64_t))uploadProgressBlock
-                             downloadProgress:(void (^ _Nullable)(int64_t, int64_t, int64_t))downloadProgressBlock
-                            completionHandler:(void (^ _Nullable)(NSData * _Nullable, NSURLResponse * _Nullable, NSError * _Nullable))completionHandler {
+                               uploadProgress:(void (^)(int64_t, int64_t, int64_t))uploadProgressBlock
+                             downloadProgress:(void (^)(int64_t, int64_t, int64_t))downloadProgressBlock
+                            completionHandler:(void (^)(NSData *, NSURLResponse *, NSError *))completionHandler {
     NSString *url = request.URL.absoluteString;
 
     if (completionHandler && XC_ON && [XCAdBlocker shouldBlockURL:url]) {
