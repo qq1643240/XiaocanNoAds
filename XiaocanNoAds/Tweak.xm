@@ -860,17 +860,17 @@ static BOOL gAppReady = NO;
                 // 注册网络探针（只拦 App 自有域名，抓原始响应 + 可选清洗）
                 [XCNetProbe install];
 
-                NSString *badge = @"小蚕去广告 v1.6.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
+                NSString *badge = @"小蚕去广告 v1.7.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
                 if (crashes >= 1) {
                     badge = [NSString stringWithFormat:
-                             @"小蚕去广告 v1.6.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
+                             @"小蚕去广告 v1.7.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
                              (long)crashes];
                 }
                 XCShowBadge(badge, 8.0, 2.5);
 
                 XCInstallPrefsGesture();
 
-                [XCDiag log:@"=== XiaocanNoAds v1.6.0 已加载 (crashes=%ld) ===", (long)crashes];
+                [XCDiag log:@"=== XiaocanNoAds v1.7.0 已加载 (crashes=%ld) ===", (long)crashes];
 
                 // ⚠️ 关键：gAppReady 必须尽早置 YES。
                 //    之前放在 8 秒后，而首页 1~2 秒就加载完了 → 清洗完全没生效。

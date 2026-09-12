@@ -89,8 +89,43 @@ static BOOL XCStringIsPromoSlug(NSString *s) {
     return NO;
 }
 
+/// 【关键】实测得到的推广位 resource_id（3.20.5 抓包确认）
+///
+/// 响应结构里，顶层 resource **只有 resource_id，没有 resource_slug**：
+///   {"status":{"code":0},"resources":[
+///       {"resource_id":301,"value":[
+///           {"rank_id":0,"content":"{...}","resource_slug":"BRAND_LOGO_CAROUSEL_SECTION",...}
+///       ]}
+///   ]}
+/// resource_slug 藏在 value 的子对象里。
+/// 之前只按 slug 匹配 → 删的是 value 里的子对象，顶层 resource 还在，App 照样渲染。
+/// 必须按 resource_id 匹配顶层 resource 才能真正去掉。
+static NSSet *XCPromoResourceIDs(void) {
+    static NSSet *ids = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        ids = [NSSet setWithObjects:
+               @291,   // CPS_COUPON_SECTION            CPS 券（美团/淘宝跳转）
+               @293,   // KEY_VISUAL_SECTION            主视觉头图（蚕宝省钱攻略横幅）
+               @299,   // SPECIAL_OFFERS_SECTION        特惠专场（抖音商城）
+               @301,   // BRAND_LOGO_CAROUSEL_SECTION   金刚区（美团/淘宝闪购/京东 logo）
+               @302,   // TAB_SWITCH_SECTION            tab 切换区（特惠专场）
+               nil];
+    });
+    return ids;
+}
+
+static BOOL XCNumberIsPromoResourceID(id rid) {
+    if (rid == nil || [rid isKindOfClass:[NSNull class]]) return NO;
+    if (![rid respondsToSelector:@selector(integerValue)]) return NO;
+    return [XCPromoResourceIDs() containsObject:@([rid integerValue])];
+}
+
 /// resources / value 数组里的推广资源项
 static BOOL XCDictIsPromoResource(NSDictionary *dict) {
+    // 【最高优先】顶层 resource 只有 resource_id，按 id 判定（实测 5 个全是推广 section）
+    if (XCNumberIsPromoResourceID(dict[@"resource_id"])) return YES;
+
     id slug = dict[@"resource_slug"];
     if ([slug isKindOfClass:[NSString class]] && XCStringIsPromoSlug(slug)) return YES;
 
