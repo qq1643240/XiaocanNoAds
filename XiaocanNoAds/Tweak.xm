@@ -98,8 +98,12 @@ static inline NSString *XCClsOf(id obj) {
 - (void)showAdFromRootViewController:(UIViewController *)vc {
     if (XC_ON) {
         // 激励视频：直接通知"已关闭"，App 照常发奖励，用户无需真看
+        // 用 KVC 运行时取值，避免对 forward declaration 发消息导致编译错误
         id delegate = nil;
-        @try { delegate = [self valueForKey:@"delegate"]; } @catch (__unused NSException *e) {}
+        @try {
+            delegate = ((id (*)(id, SEL, NSString *))objc_msgSend)(
+                self, @selector(valueForKey:), @"delegate");
+        } @catch (__unused NSException *e) {}
         SEL sel = @selector(nativeExpressRewardedVideoAdDidClose:);
         if (delegate && [delegate respondsToSelector:sel]) {
             ((void (*)(id, SEL, id))objc_msgSend)(delegate, sel, self);
