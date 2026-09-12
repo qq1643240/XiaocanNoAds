@@ -88,8 +88,6 @@ static NSString *const kXCCaptureNet       = @"XCNoAds_captureNet";
 
     XCLog(@"config loaded: enabled=%d scrub=%d capture=%d",
           _enabled, _scrubPromoJSON, _captureNet);
-          _enabled, _blockSplash, _blockInterstitial, _blockBanner,
-          _blockFeed, _blockReward, _hideAdViews);
 }
 
 - (void)save {
