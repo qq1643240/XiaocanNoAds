@@ -27,6 +27,7 @@
 #import "XCAdBlocker.h"
 #import "XCDiag.h"
 #import "XCJSONScrubber.h"
+#import "XCNetProbe.h"
 #import "XCPrefsController.h"
 
 #define XC_ON   ([XCNoAdsConfig shared].enabled)
@@ -844,17 +845,20 @@ static BOOL gAppReady = NO;
 
                 XCBeginLaunchMarker();
 
-                NSString *badge = @"小蚕去广告 v1.3.2 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
+                // 注册网络探针（只拦 App 自有域名，抓原始响应 + 可选清洗）
+                [XCNetProbe install];
+
+                NSString *badge = @"小蚕去广告 v1.4.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
                 if (crashes >= 1) {
                     badge = [NSString stringWithFormat:
-                             @"小蚕去广告 v1.3.2 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
+                             @"小蚕去广告 v1.4.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
                              (long)crashes];
                 }
                 XCShowBadge(badge, 8.0, 2.5);
 
                 XCInstallPrefsGesture();
 
-                [XCDiag log:@"=== XiaocanNoAds v1.3.2 已加载 (crashes=%ld) ===", (long)crashes];
+                [XCDiag log:@"=== XiaocanNoAds v1.4.0 已加载 (crashes=%ld) ===", (long)crashes];
 
                 // 撑过启动期就算成功：清掉崩溃标记
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)),

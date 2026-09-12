@@ -12,6 +12,7 @@ XiaocanNoAds_FILES = Tweak.xm \
                      XCAdBlocker.m \
                      XCDiag.m \
                      XCJSONScrubber.m \
+                     XCNetProbe.m \
                      XCPrefsController.m
 XiaocanNoAds_FRAMEWORKS = UIKit Foundation
 XiaocanNoAds_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable

@@ -77,6 +77,18 @@ static BOOL XCDictLooksPromo(NSDictionary *dict) {
             [lk containsString:@"coupon"] || [lk containsString:@"redenvelope"]) {
             if (![val isKindOfClass:[NSNull class]]) return YES;
         }
+
+        // ── 实测规则（来自神策埋点 HomePage_Feed_*_Ex 的真实字段）──
+        // ad_type 非 0 = 广告位（埋点里外卖红包 banner 就是 "ad_type":1）
+        if ([lk isEqualToString:@"ad_type"]) {
+            if ([val isKindOfClass:[NSNumber class]] && [val integerValue] != 0) return YES;
+            if ([val isKindOfClass:[NSString class]] && [val integerValue] != 0) return YES;
+        }
+
+        // information_pic_list = 信息流推广图列表（如 "(高)今日可领--外卖红包.gif"）
+        if ([lk isEqualToString:@"information_pic_list"]) {
+            if (![val isKindOfClass:[NSNull class]]) return YES;
+        }
     }
     return NO;
 }

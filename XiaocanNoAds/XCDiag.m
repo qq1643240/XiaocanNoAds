@@ -7,9 +7,9 @@
 #import <UIKit/UIKit.h>
 
 static NSString *const kXCDiagDirName = @"XiaocanNoAds";
-static const unsigned long long kXCDiagMaxBytes = 8ULL * 1024ULL * 1024ULL; // 8MB 上限
+static const unsigned long long kXCDiagMaxBytes = 16ULL * 1024ULL * 1024ULL; // 16MB 上限
 static const NSUInteger kXCDiagMaxHTTPRecords = 400;
-static const NSUInteger kXCDiagMaxJSONRecords = 300;
+static const NSUInteger kXCDiagMaxJSONRecords = 500;
 static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录字符数
 
 @interface XCDiag ()
@@ -221,7 +221,6 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
     if (!s.captureEnabled || !s.captureJSON) return;
     if (json == nil) return;
     if (s.jsonCount >= kXCDiagMaxJSONRecords) return;
-    s.jsonCount = s.jsonCount + 1;
 
     NSString *desc = nil;
     @try {
@@ -241,6 +240,15 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
             desc = @"<无法序列化>";
         }
     }
+
+    if (desc.length == 0) return;
+
+    // 跳过系统数据（iOS 框架清单之类的大块无用 JSON），把配额留给 App 数据
+    if (desc.length > 50000 && [desc containsString:@"\"platforms\""]) {
+        return;
+    }
+
+    s.jsonCount = s.jsonCount + 1;
 
     NSMutableString *m = [NSMutableString string];
     [m appendFormat:@"\n──── JSON #%lu ────\n", (unsigned long)s.jsonCount];
