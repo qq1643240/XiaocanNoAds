@@ -39,6 +39,9 @@ static BOOL XCIsAppAPIHost(NSURL *url) {
     NSString *scheme = request.URL.scheme.lowercaseString;
     if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) return NO;
 
+    // 安全守卫：流式 body 只能消费一次，转发会失败 → 这类请求直接透传
+    if (request.HTTPBody == nil && request.HTTPBodyStream != nil) return NO;
+
     return XCIsAppAPIHost(request.URL);
 }
 
