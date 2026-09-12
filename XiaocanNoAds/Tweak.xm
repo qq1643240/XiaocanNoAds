@@ -20,6 +20,9 @@
 //   L3 聚合层：AdGain 请求不发
 //   L4 业务层：CXHChannel* 广告 View 不上屏
 //   L5 兜底层：广告 View 隐藏 + 开屏 VC 拦截
+//
+// 注意：所有方法体一律使用标准多行格式——官方 theos 的 Logos
+//       不接受「单行 + %orig」写法，会报 function definition is not allowed here。
 
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
@@ -104,24 +107,52 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
 
 
 %hook BUSplashAd
-- (void)loadAdData { if (XC_ON) return; %orig; }
-- (void)showAdInWindow:(UIWindow *)window { if (XC_ON) return; %orig; }
+
+- (void)loadAdData {
+    if (XC_ON) return;
+    %orig;
+}
+
+- (void)showAdInWindow:(UIWindow *)window {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
 %hook BUNativeExpressAdManager
-- (void)loadAdDataWithCount:(NSInteger)count { if (XC_ON) return; %orig; }
+
+- (void)loadAdDataWithCount:(NSInteger)count {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
 %hook BUNativeExpressFullscreenVideoAd
-- (void)loadAdData { if (XC_ON) return; %orig; }
-- (void)showAdFromRootViewController:(UIViewController *)vc { if (XC_ON) return; %orig; }
+
+- (void)loadAdData {
+    if (XC_ON) return;
+    %orig;
+}
+
+- (void)showAdFromRootViewController:(UIViewController *)vc {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
 %hook BUNativeExpressRewardedVideoAd
-- (void)loadAdData { if (XC_ON) return; %orig; }
+
+- (void)loadAdData {
+    if (XC_ON) return;
+    %orig;
+}
+
 - (void)showAdFromRootViewController:(UIViewController *)vc {
     if (XC_ON) {
         id delegate = nil;
@@ -137,18 +168,36 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
     }
     %orig;
 }
+
 %end
 
 
 // 穿山甲 draw / banner（信息流自渲染广告，首页那些横幅就是它）
 %hook ABUDrawAdsManager
-- (void)loadAdDataWithCount:(NSInteger)count { if (XC_ON) { XCLog(@"block ABUDrawAdsManager"); return; } %orig; }
+
+- (void)loadAdDataWithCount:(NSInteger)count {
+    if (XC_ON) {
+        XCLog(@"block ABUDrawAdsManager");
+        return;
+    }
+    %orig;
+}
+
 %end
 
 
 %hook ABUBannerAd
-- (void)loadAdData { if (XC_ON) return; %orig; }
-- (void)loadBannerAd { if (XC_ON) return; %orig; }
+
+- (void)loadAdData {
+    if (XC_ON) return;
+    %orig;
+}
+
+- (void)loadBannerAd {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
@@ -156,18 +205,40 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
 // L1 厂商层：优量汇 GDT
 // ═════════════════════════════════════════════════════════════
 %hook GDTSplashAd
-- (void)loadAd { if (XC_ON) { XCLog(@"block GDTSplashAd"); return; } %orig; }
+
+- (void)loadAd {
+    if (XC_ON) {
+        XCLog(@"block GDTSplashAd");
+        return;
+    }
+    %orig;
+}
+
 %end
 
 
 %hook GDTUnifiedInterstitialAd
-- (void)loadAd { if (XC_ON) return; %orig; }
-- (void)presentAdFromRootViewController:(UIViewController *)vc { if (XC_ON) return; %orig; }
+
+- (void)loadAd {
+    if (XC_ON) return;
+    %orig;
+}
+
+- (void)presentAdFromRootViewController:(UIViewController *)vc {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
 %hook GDTUnifiedNativeAd
-- (void)loadAd { if (XC_ON) return; %orig; }
+
+- (void)loadAd {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
@@ -175,12 +246,22 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
 // L1 厂商层：快手 KS
 // ═════════════════════════════════════════════════════════════
 %hook KSAdSDKManager
-+ (void)setAppId:(NSString *)appId { if (XC_ON) return; %orig; }
+
++ (void)setAppId:(NSString *)appId {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
 %hook KSSplashAdView
-- (void)loadAdData { if (XC_ON) return; %orig; }
+
+- (void)loadAdData {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
@@ -188,17 +269,41 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
 // L2 自研层：BTP*AdHelper（App 自己的广告封装）
 // ═════════════════════════════════════════════════════════════
 %hook BTPSplashAdHelper
-- (void)loadAdData { if (XC_ON) { XCLog(@"block BTPSplashAdHelper"); return; } %orig; }
+
+- (void)loadAdData {
+    if (XC_ON) {
+        XCLog(@"block BTPSplashAdHelper");
+        return;
+    }
+    %orig;
+}
+
 %end
 
 
 %hook BTPBannerAdHelper
-- (void)loadAdData { if (XC_ON) { XCLog(@"block BTPBannerAdHelper"); return; } %orig; }
+
+- (void)loadAdData {
+    if (XC_ON) {
+        XCLog(@"block BTPBannerAdHelper");
+        return;
+    }
+    %orig;
+}
+
 %end
 
 
 %hook BTPFeedAdHelper
-- (void)loadAdData { if (XC_ON) { XCLog(@"block BTPFeedAdHelper"); return; } %orig; }
+
+- (void)loadAdData {
+    if (XC_ON) {
+        XCLog(@"block BTPFeedAdHelper");
+        return;
+    }
+    %orig;
+}
+
 %end
 
 
@@ -206,12 +311,25 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
 // L3 聚合层：AdGain
 // ═════════════════════════════════════════════════════════════
 %hook AdGainBaseAdRequestImp
-- (void)startRequest { if (XC_ON) { XCLog(@"block AdGain request"); return; } %orig; }
+
+- (void)startRequest {
+    if (XC_ON) {
+        XCLog(@"block AdGain request");
+        return;
+    }
+    %orig;
+}
+
 %end
 
 
 %hook AdGainAdRequest
-- (void)sendRequest { if (XC_ON) return; %orig; }
+
+- (void)sendRequest {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
@@ -219,22 +337,45 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
 // L4 业务层：CXHChannel* 广告视图不上屏
 // ═════════════════════════════════════════════════════════════
 %hook CXHChannelSplashAdView
-- (void)show { if (XC_ON) { XCLog(@"block CXH splash show"); return; } %orig; }
+
+- (void)show {
+    if (XC_ON) {
+        XCLog(@"block CXH splash show");
+        return;
+    }
+    %orig;
+}
+
 %end
 
 
 %hook CXHChannelInterstitialAdView
-- (void)show { if (XC_ON) return; %orig; }
+
+- (void)show {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
 %hook CXHChannelRewardVideoAd
-- (void)show { if (XC_ON) return; %orig; }
+
+- (void)show {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
 %hook CXHChannelRequestManager
-- (void)startRequest { if (XC_ON) return; %orig; }
+
+- (void)startRequest {
+    if (XC_ON) return;
+    %orig;
+}
+
 %end
 
 
@@ -310,9 +451,11 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
     });
     if (XCClsNameContains(self, splashKeywords)) {
         XCLog(@"fast-dismiss splash %@", XCClsOf(self));
+        __weak typeof(self) wself = self;
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (self.presentingViewController) {
-                [self dismissViewControllerAnimated:NO completion:nil];
+            __strong typeof(wself) sself = wself;
+            if (sself.presentingViewController) {
+                [sself dismissViewControllerAnimated:NO completion:nil];
             }
         });
     }
