@@ -80,6 +80,10 @@ static void XCShowBadge(NSString *text, NSTimeInterval showSeconds, NSTimeInterv
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         @try {
+            // 双保险：UIApplication 还没就绪就绝不碰 UI
+            if ([UIApplication sharedApplication] == nil) {
+                return;
+            }
             UIWindow *w = [[UIWindow alloc] initWithFrame:CGRectZero];
             w.windowLevel = UIWindowLevelAlert + 100;
             w.backgroundColor = [UIColor colorWithRed:0.05 green:0.55 blue:0.25 alpha:0.94];
@@ -126,19 +130,25 @@ static void XCShowBadge(NSString *text, NSTimeInterval showSeconds, NSTimeInterv
 static void XCInstallPrefsGesture(void) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        UIWindow *win = nil;
-        for (UIWindow *w in [UIApplication sharedApplication].windows) {
-            if (w.isKeyWindow) { win = w; break; }
-        }
-        if (win == nil) win = [UIApplication sharedApplication].windows.firstObject;
-        if (win == nil) return;
+        @try {
+            if ([UIApplication sharedApplication] == nil) {
+                return;
+            }
+            UIWindow *win = nil;
+            for (UIWindow *w in [UIApplication sharedApplication].windows) {
+                if (w.isKeyWindow) { win = w; break; }
+            }
+            if (win == nil) win = [UIApplication sharedApplication].windows.firstObject;
+            if (win == nil) return;
 
-        UITapGestureRecognizer *tap =
-            [[UITapGestureRecognizer alloc] initWithTarget:[XCPrefsController class]
-                                                    action:@selector(xc_handlePrefsGesture:)];
-        tap.numberOfTapsRequired = 2;
-        tap.numberOfTouchesRequired = 3;
-        [win addGestureRecognizer:tap];
+            UITapGestureRecognizer *tap =
+                [[UITapGestureRecognizer alloc] initWithTarget:[XCPrefsController class]
+                                                        action:@selector(xc_handlePrefsGesture:)];
+            tap.numberOfTapsRequired = 2;
+            tap.numberOfTouchesRequired = 3;
+            [win addGestureRecognizer:tap];
+        } @catch (__unused NSException *e) {
+        }
     });
 }
 
@@ -834,17 +844,17 @@ static BOOL gAppReady = NO;
 
                 XCBeginLaunchMarker();
 
-                NSString *badge = @"小蚕去广告 v1.3.1 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
+                NSString *badge = @"小蚕去广告 v1.3.2 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
                 if (crashes >= 1) {
                     badge = [NSString stringWithFormat:
-                             @"小蚕去广告 v1.3.1 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
+                             @"小蚕去广告 v1.3.2 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
                              (long)crashes];
                 }
                 XCShowBadge(badge, 8.0, 2.5);
 
                 XCInstallPrefsGesture();
 
-                [XCDiag log:@"=== XiaocanNoAds v1.3.1 已加载 (crashes=%ld) ===", (long)crashes];
+                [XCDiag log:@"=== XiaocanNoAds v1.3.2 已加载 (crashes=%ld) ===", (long)crashes];
 
                 // 撑过启动期就算成功：清掉崩溃标记
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)),

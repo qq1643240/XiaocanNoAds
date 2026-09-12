@@ -1,6 +1,6 @@
 Package: com.xiaocan.noads
 Name: XiaocanNoAds
-Version: 1.3.1
+Version: 1.3.2
 Architecture: iphoneos-arm64
 Description: 小蚕惠生活去广告插件 (roothide)
 Maintainer: qq1643240 <qq1643240@users.noreply.github.com>
