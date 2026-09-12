@@ -4,6 +4,7 @@
 //
 
 #import "XCNoAdsConfig.h"
+#import "XCDiag.h"
 
 static NSString *const kXCEnabled          = @"XCNoAds_enabled";
 static NSString *const kXCLogEnabled       = @"XCNoAds_logEnabled";
@@ -16,6 +17,8 @@ static NSString *const kXCHideAdViews      = @"XCNoAds_hideAdViews";
 static NSString *const kXCHideHomePromos   = @"XCNoAds_hideHomePromos";
 static NSString *const kXCHidePromoTabs    = @"XCNoAds_hidePromoTabs";
 static NSString *const kXCBlockPromoAPI    = @"XCNoAds_blockPromoAPI";
+static NSString *const kXCScrubPromoJSON   = @"XCNoAds_scrubPromoJSON";
+static NSString *const kXCCaptureNet       = @"XCNoAds_captureNet";
 
 @implementation XCNoAdsConfig
 
@@ -41,6 +44,8 @@ static NSString *const kXCBlockPromoAPI    = @"XCNoAds_blockPromoAPI";
     _hideHomePromos    = YES;
     _hidePromoTabs     = YES;
     _blockPromoAPI     = NO;   // 默认关：接口拦截较激进，需用户主动开
+    _scrubPromoJSON    = YES;  // 默认开：从接口 JSON 剔除促销节点（对付 SwiftUI/跨端渲染）
+    _captureNet        = YES;  // 默认开：诊断期记录网络，方便定位漏网广告
 }
 
 - (void)load {
@@ -61,6 +66,8 @@ static NSString *const kXCBlockPromoAPI    = @"XCNoAds_blockPromoAPI";
             kXCHideHomePromos:    @YES,
             kXCHidePromoTabs:     @YES,
             kXCBlockPromoAPI:     @NO,
+            kXCScrubPromoJSON:    @YES,
+            kXCCaptureNet:        @YES,
         }];
     });
 
@@ -94,6 +101,8 @@ static NSString *const kXCBlockPromoAPI    = @"XCNoAds_blockPromoAPI";
     [ud setBool:_hideHomePromos    forKey:kXCHideHomePromos];
     [ud setBool:_hidePromoTabs     forKey:kXCHidePromoTabs];
     [ud setBool:_blockPromoAPI     forKey:kXCBlockPromoAPI];
+    [ud setBool:_scrubPromoJSON    forKey:kXCScrubPromoJSON];
+    [ud setBool:_captureNet        forKey:kXCCaptureNet];
     [ud synchronize];
 }
 

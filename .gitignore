@@ -13,5 +13,7 @@ xcuserdata/
 dist/
 debs/
 work/
-*.logwork205/
+*.log
+work205/
 work*/
+dump/

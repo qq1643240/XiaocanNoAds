@@ -40,6 +40,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL hidePromoTabs;      // 底部「抖音补贴」「特领元宝」等推广 tab
 @property (nonatomic, assign) BOOL blockPromoAPI;      // 拦截 /home_promotion 等促销接口
 
+// ── 数据层（对付 SwiftUI / 跨端渲染的推广位，唯一有效路径）──
+@property (nonatomic, assign) BOOL scrubPromoJSON;     // 清洗接口 JSON 中的促销节点
+
+// ── 诊断 ──
+@property (nonatomic, assign) BOOL captureNet;         // 抓包记录（写日志文件）
+
 /// 从 NSUserDefaults 载入
 - (void)load;
 
