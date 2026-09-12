@@ -63,11 +63,19 @@ static NSArray<NSString *> *XCPromoSlugs(void) {
     static NSArray *kw = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        kw = @[@"DOUYIN_BANNER",   // 抖音 banner（实测）
-               @"SECOND_TAB",      // 二级 tab「抖音补贴」（实测）
-               @"BANNER", @"_AD", @"AD_", @"FLOAT", @"POPUP",
-               @"REDPACKET", @"RED_PACKET", @"COUPON", @"PROMOT",
-               @"WELFARE", @"LOTTERY", @"GIFT", @"RAIN"];
+        kw = @[
+               // ── 实测：首页推广 section（3.20.5 抓包确认）──
+               @"BRAND_LOGO_CAROUSEL_SECTION",  // 福利社格子（美团红包/淘闪购/京东红包…）
+               @"KEY_VISUAL_SECTION",           // 主视觉横幅（请学生免费喝 10000 杯奶茶）
+               @"SECOND_TAB",                   // 二级 tab（抖音补贴 / 赚钱 / 特领元宝）
+               @"TAB_SWITCH_SECTION",           // tab 切换区
+               @"CPS_COUPON_SECTION",           // CPS 优惠券区块
+               @"SPECIAL_OFFERS_SECTION",       // 特惠区块
+               @"DOUYIN_BANNER",                // 抖音 banner
+               // ── 通用推广关键词 ──
+               @"BANNER", @"_AD", @"AD_", @"ADVER", @"FLOAT", @"POPUP",
+               @"REDPACKET", @"RED_PACKET", @"REDPACK", @"COUPON", @"PROMOT",
+               @"WELFARE", @"LOTTERY", @"GIFT", @"RAIN", @"LUCKY"];
     });
     return kw;
 }

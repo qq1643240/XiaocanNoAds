@@ -762,18 +762,27 @@ static BOOL gAppReady = NO;
     static NSArray *splashKeywords = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        splashKeywords = @[@"SplashAdView", @"AdGainSplash", @"BTPSplash",
-                           @"SplashAdViewController", @"CXHChannelSplash"];
+        // 命中即可：SplashAd 覆盖 MSSplashAdViewController / SplashAdView 等
+        splashKeywords = @[@"SplashAd", @"AdGainSplash", @"BTPSplash",
+                           @"CXHChannelSplash", @"SplashAdViewController",
+                           @"FancyViewController", @"FancySplash"];
     });
-    if (XCClsNameContains(self, splashKeywords)) {
+    if (XC_ON && XC_CFG.blockSplash && XCClsNameContains(self, splashKeywords)) {
         XCLog(@"fast-dismiss splash %@", XCClsOf(self));
         [XCDiag log:@"[提速] 立即关闭开屏 %@", XCClsOf(self)];
         __weak typeof(self) wself = self;
         dispatch_async(dispatch_get_main_queue(), ^{
             __strong typeof(wself) sself = wself;
+            if (sself == nil) return;
             if (sself.presentingViewController) {
                 [sself dismissViewControllerAnimated:NO completion:nil];
             }
+            // 兜底：很多开屏广告不是 present 出来的，而是直接挂到 window 上，
+            //       此时 presentingViewController 为 nil，必须手动摘掉
+            [sself removeFromParentViewController];
+            [sself.view removeFromSuperview];
+            sself.view.hidden = YES;
+            sself.view.alpha = 0;
         });
     }
 }
@@ -851,22 +860,25 @@ static BOOL gAppReady = NO;
                 // 注册网络探针（只拦 App 自有域名，抓原始响应 + 可选清洗）
                 [XCNetProbe install];
 
-                NSString *badge = @"小蚕去广告 v1.5.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
+                NSString *badge = @"小蚕去广告 v1.6.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
                 if (crashes >= 1) {
                     badge = [NSString stringWithFormat:
-                             @"小蚕去广告 v1.5.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
+                             @"小蚕去广告 v1.6.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
                              (long)crashes];
                 }
                 XCShowBadge(badge, 8.0, 2.5);
 
                 XCInstallPrefsGesture();
 
-                [XCDiag log:@"=== XiaocanNoAds v1.5.0 已加载 (crashes=%ld) ===", (long)crashes];
+                [XCDiag log:@"=== XiaocanNoAds v1.6.0 已加载 (crashes=%ld) ===", (long)crashes];
+
+                // ⚠️ 关键：gAppReady 必须尽早置 YES。
+                //    之前放在 8 秒后，而首页 1~2 秒就加载完了 → 清洗完全没生效。
+                gAppReady = YES;
 
                 // 撑过启动期就算成功：清掉崩溃标记
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)),
                                dispatch_get_main_queue(), ^{
-                    gAppReady = YES;
                     XCEndLaunchMarker();
                     XCResetCrashCount();
                 });
