@@ -5,6 +5,7 @@
 
 #import "XCPrefsController.h"
 #import "XCNoAdsConfig.h"
+#import "XCAdBlocker.h"
 
 @interface XCPrefsController () <UITableViewDataSource, UITableViewDelegate>
 @property (nonatomic, strong) UITableView *table;
@@ -35,18 +36,22 @@
 
 #pragma mark - Data
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)t { return 3; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)t { return 4; }
 
 - (NSString *)tableView:(UITableView *)t titleForHeaderInSection:(NSInteger)s {
     if (s == 0) return @"总开关";
     if (s == 1) return @"拦截项";
-    return @"其它";
+    if (s == 2) return @"其它";
+    return @"拦截统计";
 }
 
 - (NSInteger)tableView:(UITableView *)t numberOfRowsInSection:(NSInteger)s {
     if (s == 0) return 1;
     if (s == 1) return 6;
-    return 1;
+    if (s == 2) return 1;
+    // 统计：1 行计数 + 最多 3 行最近拦截的 URL
+    NSUInteger recent = [XCAdBlocker shared].recentBlocked.count;
+    return 1 + MIN(recent, (NSUInteger)3);
 }
 
 - (UITableViewCell *)tableView:(UITableView *)t cellForRowAtIndexPath:(NSIndexPath *)ip {
@@ -71,11 +76,28 @@
         BOOL vals[6] = { cfg.blockSplash, cfg.blockInterstitial, cfg.blockBanner,
                          cfg.blockFeed, cfg.blockReward, cfg.hideAdViews };
         sw.on = vals[ip.row];
-    } else {
+    } else if (ip.section == 2) {
         c.textLabel.text = @"输出调试日志";
         c.textLabel.textColor = UIColor.secondaryLabelColor;
         sw.on = cfg.logEnabled;
         sw.tag = 1;
+    } else {
+        // 拦截统计：只读展示
+        c.accessoryView = nil;
+        c.textLabel.font = [UIFont systemFontOfSize:13];
+        if (ip.row == 0) {
+            c.textLabel.textColor = UIColor.labelColor;
+            c.textLabel.font = [UIFont boldSystemFontOfSize:15];
+            c.textLabel.text = [NSString stringWithFormat:@"已拦截广告请求：%lu 次",
+                                (unsigned long)[XCAdBlocker shared].blockedCount];
+        } else {
+            c.textLabel.textColor = UIColor.secondaryLabelColor;
+            c.textLabel.numberOfLines = 2;
+            NSArray *recent = [XCAdBlocker shared].recentBlocked;
+            NSUInteger idx = ip.row - 1;
+            c.textLabel.text = (idx < recent.count) ? recent[idx] : @"";
+        }
+        return c;
     }
 
     [sw addTarget:self action:@selector(onSwitch:) forControlEvents:UIControlEventValueChanged];

@@ -9,6 +9,7 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = XiaocanNoAds
 XiaocanNoAds_FILES = Tweak.xm \
                      XCNoAdsConfig.m \
+                     XCAdBlocker.m \
                      XCPrefsController.m
 XiaocanNoAds_FRAMEWORKS = UIKit Foundation
 XiaocanNoAds_CFLAGS = -fobjc-arc -Wno-deprecated-declarations -Wno-unused-variable
