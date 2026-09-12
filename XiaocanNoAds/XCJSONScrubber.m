@@ -37,10 +37,12 @@ static NSArray<NSString *> *XCPromoWords(void) {
     return kw;
 }
 
-@implementation XCJSONScrubber
-
+@interface XCJSONScrubber ()
 + (void)_collect:(id)node path:(NSString *)path into:(NSMutableArray *)out depth:(NSUInteger)depth;
 + (id)_scrub:(id)node removed:(NSUInteger *)count depth:(NSUInteger)depth;
+@end
+
+@implementation XCJSONScrubber
 
 + (NSArray<NSString *> *)keywords {
     return XCPromoWords();
