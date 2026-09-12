@@ -61,6 +61,40 @@ static void XCRecordHTTP(NSURLRequest *req, NSData *data, NSURLResponse *resp, N
           responseBody:data];
 }
 
+/// 【核心】在网络回调里清洗响应 data，再交给 App。
+///
+/// 为什么必须在网络层做：
+/// 业务响应（/rpc）由 Kotlin/Native 或 Swift Codable 解析，
+/// **不走 NSJSONSerialization** —— 所以只 hook NSJSONSerialization 完全打不到业务数据。
+/// （实测：探针 NSURLProtocol 也抓不到 /rpc，因为 App 的 API session 绕过了它。）
+/// 只有在 dataTask 的 completionHandler 里把 data 改掉，App 才拿得到干净数据。
+static NSData *XCScrubResponseData(NSData *data, NSString *url) {
+    if (!XC_ON || !XC_CFG.scrubPromoJSON) return data;
+    if (data.length == 0) return data;
+
+    @try {
+        // 只处理 JSON（首字节 { 或 [）
+        unsigned char c = 0;
+        [data getBytes:&c length:1];
+        if (c != '{' && c != '[') return data;
+
+        id json = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
+        if (json == nil) return data;
+
+        NSUInteger removed = 0;
+        id scrubbed = [XCJSONScrubber scrubJSON:json removed:&removed];
+        NSData *nd = [NSJSONSerialization dataWithJSONObject:scrubbed options:0 error:NULL];
+        if (nd.length == 0) return data;
+
+        if (removed > 0) {
+            [XCDiag log:@"[清洗·网络层] %@ 移除 %lu 个节点", url, (unsigned long)removed];
+        }
+        return nd;
+    } @catch (__unused NSException *e) {
+        return data;
+    }
+}
+
 /// 判断是否「像接口返回的 JSON」——只有像才清洗，避免误伤其它 JSON
 static BOOL XCLooksLikeAPIResponse(id obj) {
     if (![obj isKindOfClass:[NSDictionary class]]) return NO;
@@ -280,11 +314,14 @@ static BOOL gAppReady = NO;
         return %orig(request, wrapped);
     }
 
-    if (completionHandler && XC_CFG.captureNet) {
+    if (completionHandler && (XC_CFG.captureNet || (XC_ON && XC_CFG.scrubPromoJSON))) {
         void (^wrapped)(NSData *, NSURLResponse *, NSError *) =
             ^(NSData *data, NSURLResponse *response, NSError *error) {
-                XCRecordHTTP(request, data, response, error);
-                completionHandler(data, response, error);
+                if (XC_CFG.captureNet) {
+                    XCRecordHTTP(request, data, response, error);
+                }
+
+                completionHandler(XCScrubResponseData(data, url), response, error);
             };
         return %orig(request, wrapped);
     }
@@ -332,11 +369,13 @@ static BOOL gAppReady = NO;
         return %orig(request, uploadProgressBlock, downloadProgressBlock, wrapped);
     }
 
-    if (completionHandler && XC_CFG.captureNet) {
+    if (completionHandler && (XC_CFG.captureNet || (XC_ON && XC_CFG.scrubPromoJSON))) {
         void (^wrapped)(NSData *, NSURLResponse *, NSError *) =
             ^(NSData *data, NSURLResponse *response, NSError *error) {
-                XCRecordHTTP(request, data, response, error);
-                completionHandler(data, response, error);
+                if (XC_CFG.captureNet) {
+                    XCRecordHTTP(request, data, response, error);
+                }
+                completionHandler(XCScrubResponseData(data, url), response, error);
             };
         return %orig(request, uploadProgressBlock, downloadProgressBlock, wrapped);
     }
@@ -860,17 +899,17 @@ static BOOL gAppReady = NO;
                 // 注册网络探针（只拦 App 自有域名，抓原始响应 + 可选清洗）
                 [XCNetProbe install];
 
-                NSString *badge = @"小蚕去广告 v1.7.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
+                NSString *badge = @"小蚕去广告 v1.8.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
                 if (crashes >= 1) {
                     badge = [NSString stringWithFormat:
-                             @"小蚕去广告 v1.7.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
+                             @"小蚕去广告 v1.8.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
                              (long)crashes];
                 }
                 XCShowBadge(badge, 8.0, 2.5);
 
                 XCInstallPrefsGesture();
 
-                [XCDiag log:@"=== XiaocanNoAds v1.7.0 已加载 (crashes=%ld) ===", (long)crashes];
+                [XCDiag log:@"=== XiaocanNoAds v1.8.0 已加载 (crashes=%ld) ===", (long)crashes];
 
                 // ⚠️ 关键：gAppReady 必须尽早置 YES。
                 //    之前放在 8 秒后，而首页 1~2 秒就加载完了 → 清洗完全没生效。

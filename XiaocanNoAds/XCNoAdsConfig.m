@@ -82,8 +82,12 @@ static NSString *const kXCCaptureNet       = @"XCNoAds_captureNet";
     _hideHomePromos    = [ud boolForKey:kXCHideHomePromos];
     _hidePromoTabs     = [ud boolForKey:kXCHidePromoTabs];
     _blockPromoAPI     = [ud boolForKey:kXCBlockPromoAPI];
+    // 之前漏读这两个，导致设置面板里的开关改了不生效（一直是 init 的默认值）
+    _scrubPromoJSON    = [ud boolForKey:kXCScrubPromoJSON];
+    _captureNet        = [ud boolForKey:kXCCaptureNet];
 
-    XCLog(@"config loaded: enabled=%d splash=%d inter=%d banner=%d feed=%d reward=%d hide=%d",
+    XCLog(@"config loaded: enabled=%d scrub=%d capture=%d",
+          _enabled, _scrubPromoJSON, _captureNet);
           _enabled, _blockSplash, _blockInterstitial, _blockBanner,
           _blockFeed, _blockReward, _hideAdViews);
 }
