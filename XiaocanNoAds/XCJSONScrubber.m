@@ -40,6 +40,7 @@ static NSArray<NSString *> *XCPromoWords(void) {
 @interface XCJSONScrubber ()
 + (void)_collect:(id)node path:(NSString *)path into:(NSMutableArray *)out depth:(NSUInteger)depth;
 + (id)_scrub:(id)node removed:(NSUInteger *)count depth:(NSUInteger)depth;
++ (void)_patchAdSwitches:(NSMutableDictionary *)d;
 @end
 
 @implementation XCJSONScrubber
@@ -54,6 +55,44 @@ static BOOL XCStringLooksPromo(NSString *s) {
     for (NSString *kw in XCPromoWords()) {
         if ([lower containsString:kw.lowercaseString]) return YES;
     }
+    return NO;
+}
+
+/// 实测得到的推广位 slug（来自 resources 接口 / 神策 tracing）
+static NSArray<NSString *> *XCPromoSlugs(void) {
+    static NSArray *kw = nil;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        kw = @[@"DOUYIN_BANNER",   // 抖音 banner（实测）
+               @"SECOND_TAB",      // 二级 tab「抖音补贴」（实测）
+               @"BANNER", @"_AD", @"AD_", @"FLOAT", @"POPUP",
+               @"REDPACKET", @"RED_PACKET", @"COUPON", @"PROMOT",
+               @"WELFARE", @"LOTTERY", @"GIFT", @"RAIN"];
+    });
+    return kw;
+}
+
+static BOOL XCStringIsPromoSlug(NSString *s) {
+    if (s.length == 0) return NO;
+    NSString *u = s.uppercaseString;
+    for (NSString *kw in XCPromoSlugs()) {
+        if ([u containsString:kw]) return YES;
+    }
+    return NO;
+}
+
+/// resources / value 数组里的推广资源项
+static BOOL XCDictIsPromoResource(NSDictionary *dict) {
+    id slug = dict[@"resource_slug"];
+    if ([slug isKindOfClass:[NSString class]] && XCStringIsPromoSlug(slug)) return YES;
+
+    id tracing = dict[@"tracing"];
+    if ([tracing isKindOfClass:[NSString class]] && XCStringIsPromoSlug(tracing)) return YES;
+
+    // content 是 JSON 字符串，里面含推广文案也算
+    id content = dict[@"content"];
+    if ([content isKindOfClass:[NSString class]] && XCStringLooksPromo(content)) return YES;
+
     return NO;
 }
 
@@ -161,6 +200,8 @@ static BOOL XCDictLooksPromo(NSDictionary *dict) {
         for (NSString *k in dict) {
             out[k] = [self _scrub:dict[k] removed:count depth:depth + 1];
         }
+        // 关掉广告开关：不删节点，最安全也最有效
+        [self _patchAdSwitches:out];
         return out;
     }
 
@@ -168,7 +209,8 @@ static BOOL XCDictLooksPromo(NSDictionary *dict) {
         NSArray *arr = node;
         NSMutableArray *out = [NSMutableArray arrayWithCapacity:arr.count];
         for (id item in arr) {
-            if ([item isKindOfClass:[NSDictionary class]] && XCDictLooksPromo(item)) {
+            if ([item isKindOfClass:[NSDictionary class]] &&
+                (XCDictLooksPromo(item) || XCDictIsPromoResource(item))) {
                 *count = *count + 1;
                 continue;   // 丢掉整个促销节点
             }
@@ -178,6 +220,34 @@ static BOOL XCDictLooksPromo(NSDictionary *dict) {
     }
 
     return node;
+}
+
+/// 改写广告开关字段。
+/// 实测结构：{"ad_open":1,"ad_type":[1],"ios_slot_id":"...","ad_source":[6],
+///           "resource_id":194,"put_id":7825,"tracing":"PROGRAM_RESOURCE-194-7825-476-"}
+/// 把 ad_open 置 0 即可关掉该位置的广告，同时保留正常内容。
++ (void)_patchAdSwitches:(NSMutableDictionary *)d {
+    // 保持字段类型不变，避免 App 取值时类型不匹配
+    id adOpen = d[@"ad_open"];
+    if (adOpen != nil) {
+        if ([adOpen isKindOfClass:[NSString class]]) {
+            d[@"ad_open"] = @"0";
+        } else if ([adOpen isKindOfClass:[NSNumber class]]) {
+            d[@"ad_open"] = @0;
+        }
+    }
+    if ([d[@"ad_type"] isKindOfClass:[NSArray class]] && [d[@"ad_type"] count] > 0) {
+        d[@"ad_type"] = @[];
+    }
+    if (d[@"ios_slot_id"] != nil && [d[@"ios_slot_id"] isKindOfClass:[NSString class]]) {
+        d[@"ios_slot_id"] = @"";
+    }
+    if (d[@"ios_ad_id"] != nil && [d[@"ios_ad_id"] isKindOfClass:[NSString class]]) {
+        d[@"ios_ad_id"] = @"";
+    }
+    if (d[@"ad_photo"] != nil && [d[@"ad_photo"] isKindOfClass:[NSString class]]) {
+        d[@"ad_photo"] = @"";
+    }
 }
 
 @end

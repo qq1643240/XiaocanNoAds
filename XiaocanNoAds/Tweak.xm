@@ -65,7 +65,9 @@ static void XCRecordHTTP(NSURLRequest *req, NSData *data, NSURLResponse *resp, N
 static BOOL XCLooksLikeAPIResponse(id obj) {
     if (![obj isKindOfClass:[NSDictionary class]]) return NO;
     NSDictionary *d = obj;
-    for (NSString *k in @[@"code", @"data", @"result", @"msg", @"message", @"success", @"errno"]) {
+    for (NSString *k in @[@"code", @"data", @"result", @"msg", @"message", @"success", @"errno",
+                          @"status", @"value", @"resources",
+                          @"resource_id", @"put_id", @"ad_open", @"tracing"]) {
         if (d[k] != nil) return YES;
     }
     return NO;
@@ -240,10 +242,11 @@ static BOOL gAppReady = NO;
             NSUInteger removed = 0;
             id scrubbed = [XCJSONScrubber scrubJSON:obj removed:&removed];
             if (removed > 0) {
-                [XCDiag log:@"[清洗] 从接口 JSON 移除 %lu 个促销节点", (unsigned long)removed];
+                [XCDiag log:@"[清洗] 移除 %lu 个促销节点", (unsigned long)removed];
                 XCLog(@"scrub JSON: removed %lu promo nodes", (unsigned long)removed);
-                return scrubbed;
             }
+            // 即使没删节点，ad_open 等广告开关也可能已被改写，必须返回改写后的对象
+            return scrubbed;
         }
     } @catch (__unused NSException *e) {
         // 出问题就原样返回
@@ -848,17 +851,17 @@ static BOOL gAppReady = NO;
                 // 注册网络探针（只拦 App 自有域名，抓原始响应 + 可选清洗）
                 [XCNetProbe install];
 
-                NSString *badge = @"小蚕去广告 v1.4.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
+                NSString *badge = @"小蚕去广告 v1.5.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
                 if (crashes >= 1) {
                     badge = [NSString stringWithFormat:
-                             @"小蚕去广告 v1.4.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
+                             @"小蚕去广告 v1.5.0 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
                              (long)crashes];
                 }
                 XCShowBadge(badge, 8.0, 2.5);
 
                 XCInstallPrefsGesture();
 
-                [XCDiag log:@"=== XiaocanNoAds v1.4.0 已加载 (crashes=%ld) ===", (long)crashes];
+                [XCDiag log:@"=== XiaocanNoAds v1.5.0 已加载 (crashes=%ld) ===", (long)crashes];
 
                 // 撑过启动期就算成功：清掉崩溃标记
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)),

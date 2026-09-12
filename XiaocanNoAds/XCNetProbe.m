@@ -93,9 +93,10 @@ static BOOL XCIsAppAPIHost(NSURL *url) {
                 if (json) {
                     NSUInteger removed = 0;
                     id scrubbed = [XCJSONScrubber scrubJSON:json removed:&removed];
+                    // 无论有没有删节点都回写：ad_open 等开关可能已被改写
+                    NSData *nd = [NSJSONSerialization dataWithJSONObject:scrubbed options:0 error:NULL];
+                    if (nd.length > 0) outData = nd;
                     if (removed > 0) {
-                        NSData *nd = [NSJSONSerialization dataWithJSONObject:scrubbed options:0 error:NULL];
-                        if (nd.length > 0) outData = nd;
                         [XCDiag log:@"[清洗] %@ 移除 %lu 个节点",
                             req.URL.absoluteString, (unsigned long)removed];
                     }
