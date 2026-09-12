@@ -389,6 +389,7 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
     if (!XC_ON || ![XCNoAdsConfig shared].hideAdViews) return;
 
     static NSArray *adKeywords = nil;
+    static NSArray *promoKeywords = nil;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         adKeywords = @[@"SplashAd", @"InterstitialAd", @"BannerAd", @"NativeAd",
@@ -398,14 +399,47 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
                        @"AdContainer", @"AdCard", @"AdSlot", @"AdTemplate",
                        @"BTPBanner", @"BTPFeed", @"BTPSplash", @"BTPInterstitial",
                        @"BTPReward", @"BTPAd"];
+
+        // 首页业务推广位（原生类，实测自 3.20.5）
+        promoKeywords = @[@"HomeBubbleView",                    // 大额红包浮窗
+                          @"HomeActivityViewV2",                // 外卖红包横幅
+                          @"HomeBigBrandView",                  // 福利社格子
+                          @"HomeBigBrandTwoView",
+                          @"HomeBigBrandItem",
+                          @"HomeFullRefundStickyBannerView",    // 吸顶横幅
+                          @"HomeFullRefundRebateGuideFloatingView",
+                          @"HomeNewUserServiseFloatingView",
+                          @"HomeRainAndOrderFloatingView",      // 红包雨浮窗
+                          @"HomeRainFloatingView",
+                          @"HomeFloatTaskTipView",              // 浮动任务提示
+                          @"HomeFullRefundMarqueeItemView",     // 跑马灯
+                          @"HomePromotionItem",
+                          @"HomeTDNewUserBannerAction",
+                          @"HomePromotionNotifiDialog",         // 促销弹窗
+                          @"HomeUpActivityDialog",
+                          @"HomeActiveVipDialog",
+                          @"HomeRebornCardActivityDialog",
+                          @"HomeFullRefundExpiringRedPacketDialog"];
     });
 
     NSString *cls = NSStringFromClass([self class]);
+
     for (NSString *kw in adKeywords) {
         if ([cls containsString:kw]) {
             self.hidden = YES;
             self.alpha = 0;
-            break;
+            return;
+        }
+    }
+
+    if ([XCNoAdsConfig shared].hideHomePromos) {
+        for (NSString *kw in promoKeywords) {
+            if ([cls containsString:kw]) {
+                XCLog(@"hide promo view %@", cls);
+                self.hidden = YES;
+                self.alpha = 0;
+                return;
+            }
         }
     }
 }
@@ -463,6 +497,44 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
 
 %end
 
+
+// ═════════════════════════════════════════════════════════════
+// L5 兜底层 C：底部推广 tab 过滤（抖音补贴 / 特领元宝 等）
+// ═════════════════════════════════════════════════════════════
+%hook UITabBarController
+
+- (void)setViewControllers:(NSArray<UIViewController *> *)viewControllers animated:(BOOL)animated {
+    if (XC_ON && [XCNoAdsConfig shared].hidePromoTabs && viewControllers.count > 0) {
+        static NSArray *promoTabTitles = nil;
+        static dispatch_once_t once;
+        dispatch_once(&once, ^{
+            promoTabTitles = @[@"抖音补贴", @"特领元宝", @"补贴", @"元宝", @"福利"];
+        });
+
+        NSMutableArray<UIViewController *> *filtered = [NSMutableArray arrayWithCapacity:viewControllers.count];
+        for (UIViewController *vc in viewControllers) {
+            NSString *title = vc.tabBarItem.title ?: vc.title ?: @"";
+            BOOL isPromo = NO;
+            for (NSString *kw in promoTabTitles) {
+                if ([title containsString:kw]) { isPromo = YES; break; }
+            }
+            if (isPromo) {
+                XCLog(@"drop promo tab: %@", title);
+                continue;
+            }
+            [filtered addObject:vc];
+        }
+
+        if (filtered.count > 0 && filtered.count != viewControllers.count) {
+            %orig(filtered, animated);
+            return;
+        }
+    }
+    %orig;
+}
+
+%end
+
 %end  // group XCGroup
 
 
@@ -470,6 +542,6 @@ static BOOL XCClsNameContains(id obj, NSArray<NSString *> *keywords) {
     @autoreleasepool {
         %init(XCGroup);
         [[XCNoAdsConfig shared] load];
-        XCLog(@"XiaocanNoAds v1.1.0 loaded");
+        XCLog(@"XiaocanNoAds v1.2.0 loaded");
     }
 }

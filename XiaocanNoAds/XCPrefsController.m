@@ -47,7 +47,7 @@
 
 - (NSInteger)tableView:(UITableView *)t numberOfRowsInSection:(NSInteger)s {
     if (s == 0) return 1;
-    if (s == 1) return 6;
+    if (s == 1) return 9;
     if (s == 2) return 1;
     // 统计：1 行计数 + 最多 3 行最近拦截的 URL
     NSUInteger recent = [XCAdBlocker shared].recentBlocked.count;
@@ -70,11 +70,15 @@
         sw.on = cfg.enabled;
         sw.tag = 0;
     } else if (ip.section == 1) {
-        NSArray *names = @[@"开屏广告", @"插屏广告", @"横幅广告", @"信息流广告", @"激励视频(自动完成)", @"兜底隐藏广告View"];
+        NSArray *names = @[@"开屏广告", @"插屏广告", @"横幅广告", @"信息流广告",
+                           @"激励视频(自动完成)", @"兜底隐藏广告View",
+                           @"首页促销位(红包横幅/浮窗)", @"底部推广Tab(补贴/元宝)",
+                           @"拦截促销接口(激进)"];
         c.textLabel.text = names[ip.row];
         sw.tag = 100 + ip.row;
-        BOOL vals[6] = { cfg.blockSplash, cfg.blockInterstitial, cfg.blockBanner,
-                         cfg.blockFeed, cfg.blockReward, cfg.hideAdViews };
+        BOOL vals[9] = { cfg.blockSplash, cfg.blockInterstitial, cfg.blockBanner,
+                         cfg.blockFeed, cfg.blockReward, cfg.hideAdViews,
+                         cfg.hideHomePromos, cfg.hidePromoTabs, cfg.blockPromoAPI };
         sw.on = vals[ip.row];
     } else if (ip.section == 2) {
         c.textLabel.text = @"输出调试日志";
@@ -119,6 +123,9 @@
             case 3: cfg.blockFeed = sw.on; break;
             case 4: cfg.blockReward = sw.on; break;
             case 5: cfg.hideAdViews = sw.on; break;
+            case 6: cfg.hideHomePromos = sw.on; break;
+            case 7: cfg.hidePromoTabs = sw.on; break;
+            case 8: cfg.blockPromoAPI = sw.on; break;
         }
     }
     [cfg save];

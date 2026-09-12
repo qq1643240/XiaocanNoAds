@@ -35,6 +35,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL blockReward;        // 激励视频（自动完成）
 @property (nonatomic, assign) BOOL hideAdViews;        // 兜底隐藏广告 View
 
+// ── 首页促销（业务推广位，非标准广告 SDK）──
+@property (nonatomic, assign) BOOL hideHomePromos;     // 外卖红包横幅 / 大额红包浮窗 / 福利社格子
+@property (nonatomic, assign) BOOL hidePromoTabs;      // 底部「抖音补贴」「特领元宝」等推广 tab
+@property (nonatomic, assign) BOOL blockPromoAPI;      // 拦截 /home_promotion 等促销接口
+
 /// 从 NSUserDefaults 载入
 - (void)load;
 

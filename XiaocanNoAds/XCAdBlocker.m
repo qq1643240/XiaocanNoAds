@@ -64,8 +64,18 @@ static NSString *const kAdPaths[] = {
     @"/api/ad/",
 };
 
+// ── 首页促销接口（可选拦截，默认关闭）──
+// 注意：不要拦 /home/index（那是首页主数据），只拦纯促销接口
+static NSString *const kPromoPaths[] = {
+    @"/home_promotion",
+    @"/sec_kill_promotion",
+    @"/benefit_home",
+    @"/blind_box_flash_sale_promotion_detail",
+};
+
 static const NSUInteger kAdDomainsCount = sizeof(kAdDomains) / sizeof(kAdDomains[0]);
 static const NSUInteger kAdPathsCount   = sizeof(kAdPaths)   / sizeof(kAdPaths[0]);
+static const NSUInteger kPromoPathsCount = sizeof(kPromoPaths) / sizeof(kPromoPaths[0]);
 
 @interface XCAdBlocker ()
 @property (nonatomic, assign) NSUInteger blockedCount;
@@ -95,6 +105,13 @@ static const NSUInteger kAdPathsCount   = sizeof(kAdPaths)   / sizeof(kAdPaths[0
     }
     for (NSUInteger i = 0; i < kAdPathsCount; i++) {
         if ([lower containsString:kAdPaths[i].lowercaseString]) return YES;
+    }
+
+    // 首页促销接口：默认关，需用户在设置里主动开
+    if ([XCNoAdsConfig shared].blockPromoAPI) {
+        for (NSUInteger i = 0; i < kPromoPathsCount; i++) {
+            if ([lower containsString:kPromoPaths[i].lowercaseString]) return YES;
+        }
     }
     return NO;
 }

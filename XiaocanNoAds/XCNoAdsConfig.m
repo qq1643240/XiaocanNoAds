@@ -13,6 +13,9 @@ static NSString *const kXCBlockBanner      = @"XCNoAds_blockBanner";
 static NSString *const kXCBlockFeed        = @"XCNoAds_blockFeed";
 static NSString *const kXCBlockReward      = @"XCNoAds_blockReward";
 static NSString *const kXCHideAdViews      = @"XCNoAds_hideAdViews";
+static NSString *const kXCHideHomePromos   = @"XCNoAds_hideHomePromos";
+static NSString *const kXCHidePromoTabs    = @"XCNoAds_hidePromoTabs";
+static NSString *const kXCBlockPromoAPI    = @"XCNoAds_blockPromoAPI";
 
 @implementation XCNoAdsConfig
 
@@ -35,6 +38,9 @@ static NSString *const kXCHideAdViews      = @"XCNoAds_hideAdViews";
     _blockFeed         = YES;
     _blockReward       = YES;
     _hideAdViews       = YES;
+    _hideHomePromos    = YES;
+    _hidePromoTabs     = YES;
+    _blockPromoAPI     = NO;   // 默认关：接口拦截较激进，需用户主动开
 }
 
 - (void)load {
@@ -52,6 +58,9 @@ static NSString *const kXCHideAdViews      = @"XCNoAds_hideAdViews";
             kXCBlockFeed:         @YES,
             kXCBlockReward:       @YES,
             kXCHideAdViews:       @YES,
+            kXCHideHomePromos:    @YES,
+            kXCHidePromoTabs:     @YES,
+            kXCBlockPromoAPI:     @NO,
         }];
     });
 
@@ -63,6 +72,9 @@ static NSString *const kXCHideAdViews      = @"XCNoAds_hideAdViews";
     _blockFeed         = [ud boolForKey:kXCBlockFeed];
     _blockReward       = [ud boolForKey:kXCBlockReward];
     _hideAdViews       = [ud boolForKey:kXCHideAdViews];
+    _hideHomePromos    = [ud boolForKey:kXCHideHomePromos];
+    _hidePromoTabs     = [ud boolForKey:kXCHidePromoTabs];
+    _blockPromoAPI     = [ud boolForKey:kXCBlockPromoAPI];
 
     XCLog(@"config loaded: enabled=%d splash=%d inter=%d banner=%d feed=%d reward=%d hide=%d",
           _enabled, _blockSplash, _blockInterstitial, _blockBanner,
@@ -79,6 +91,9 @@ static NSString *const kXCHideAdViews      = @"XCNoAds_hideAdViews";
     [ud setBool:_blockFeed         forKey:kXCBlockFeed];
     [ud setBool:_blockReward       forKey:kXCBlockReward];
     [ud setBool:_hideAdViews       forKey:kXCHideAdViews];
+    [ud setBool:_hideHomePromos    forKey:kXCHideHomePromos];
+    [ud setBool:_hidePromoTabs     forKey:kXCHidePromoTabs];
+    [ud setBool:_blockPromoAPI     forKey:kXCBlockPromoAPI];
     [ud synchronize];
 }
 
