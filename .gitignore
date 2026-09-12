@@ -1,0 +1,16 @@
+theos/
+.theos/
+build/
+*.o
+*.d
+*.dep
+control
+packages/
+*.deb
+*.dylib
+.DS_Store
+xcuserdata/
+dist/
+debs/
+work/
+*.log

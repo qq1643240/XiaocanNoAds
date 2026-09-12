@@ -1,0 +1,71 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.variant }}
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [rootless, roothide]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain info
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Install Theos
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.variant }}" = "roothide" ]; then
+            THEOS_REPO="https://github.com/roothide/theos.git"
+          else
+            THEOS_REPO="https://github.com/theos/theos.git"
+          fi
+          THEOS_ROOT="${THEOS:-$GITHUB_WORKSPACE/theos}"
+          if [ ! -d "$THEOS_ROOT" ]; then
+            git clone --depth=1 --branch=master "$THEOS_REPO" "$THEOS_ROOT"
+          fi
+          cd "$THEOS_ROOT"
+          git submodule update --init --recursive --depth=1
+          cd "$GITHUB_WORKSPACE"
+          SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
+          if [ ! -e "$THEOS_ROOT/sdks/iPhoneOS.sdk" ]; then
+            sudo mkdir -p "$THEOS_ROOT/sdks"
+            sudo ln -s "$SDK_PATH" "$THEOS_ROOT/sdks/iPhoneOS.sdk"
+          fi
+          if [ ! -f "$THEOS_ROOT/sdks/iPhoneOS.sdk/usr/include/rbtree.h" ] && \
+             [ -f "$THEOS_ROOT/sdks/iPhoneOS.sdk/usr/include/sys/rbtree.h" ]; then
+            sudo ln -sf "sys/rbtree.h" "$THEOS_ROOT/sdks/iPhoneOS.sdk/usr/include/rbtree.h"
+          fi
+          if ! command -v ldid >/dev/null 2>&1; then
+            brew install ldid
+          fi
+          echo "THEOS=$THEOS_ROOT" >> "$GITHUB_ENV"
+
+      - name: Make scripts executable
+        run: chmod +x scripts/build.sh
+
+      - name: Build ${{ matrix.variant }} deb
+        env:
+          THEOS: ${{ env.THEOS }}
+          THEOS_PACKAGE_SCHEME: ${{ matrix.variant }}
+        run: ./scripts/build.sh ${{ matrix.variant }}
+
+      - name: Upload deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: XiaocanNoAds-${{ matrix.variant }}-deb
+          path: XiaocanNoAds/packages/*.deb
+          if-no-files-found: error
+          retention-days: 14
