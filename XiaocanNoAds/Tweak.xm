@@ -73,51 +73,53 @@ static BOOL XCLooksLikeAPIResponse(id obj) {
 // ── 状态浮标：确认插件是否真的加载了 ──
 static UIWindow *gBadgeWindow = nil;
 
-static void XCShowBadge(NSString *text, NSTimeInterval seconds) {
-    void (^blk)(void) = ^{
-        UIWindow *w = [[UIWindow alloc] initWithFrame:CGRectZero];
-        w.windowLevel = UIWindowLevelAlert + 100;
-        w.backgroundColor = [UIColor colorWithRed:0.05 green:0.55 blue:0.25 alpha:0.94];
-        w.layer.cornerRadius = 10.0;
-        w.clipsToBounds = YES;
+static void XCShowBadge(NSString *text, NSTimeInterval showSeconds, NSTimeInterval delay) {
+    // ⚠️ 绝不在 %ctor（dyld 加载期）同步创建 UIWindow ——
+    //    那时 UIApplication 尚未就绪，会直接启动闪退。
+    //    一律延迟到主队列、等 App 起来之后再执行。
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        @try {
+            UIWindow *w = [[UIWindow alloc] initWithFrame:CGRectZero];
+            w.windowLevel = UIWindowLevelAlert + 100;
+            w.backgroundColor = [UIColor colorWithRed:0.05 green:0.55 blue:0.25 alpha:0.94];
+            w.layer.cornerRadius = 10.0;
+            w.clipsToBounds = YES;
 
-        UILabel *l = [[UILabel alloc] initWithFrame:CGRectZero];
-        l.text = text;
-        l.textColor = [UIColor whiteColor];
-        l.font = [UIFont boldSystemFontOfSize:12.5];
-        l.textAlignment = NSTextAlignmentCenter;
-        l.numberOfLines = 0;
-        [w addSubview:l];
+            UILabel *l = [[UILabel alloc] initWithFrame:CGRectZero];
+            l.text = text;
+            l.textColor = [UIColor whiteColor];
+            l.font = [UIFont boldSystemFontOfSize:12.5];
+            l.textAlignment = NSTextAlignmentCenter;
+            l.numberOfLines = 0;
+            [w addSubview:l];
 
-        CGRect screen = [UIScreen mainScreen].bounds;
-        CGFloat width = screen.size.width - 32.0;
-        CGFloat height = 62.0;
-        w.frame = CGRectMake(16.0, 64.0, width, height);
-        l.frame = CGRectInset(w.bounds, 10.0, 6.0);
+            CGRect screen = [UIScreen mainScreen].bounds;
+            CGFloat width = screen.size.width - 32.0;
+            CGFloat height = 62.0;
+            w.frame = CGRectMake(16.0, 64.0, width, height);
+            l.frame = CGRectInset(w.bounds, 10.0, 6.0);
 
-        gBadgeWindow = w;
-        w.hidden = NO;
-        w.alpha = 0.0;
-        [UIView animateWithDuration:0.25 animations:^{
-            w.alpha = 1.0;
-        }];
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-            [UIView animateWithDuration:0.35 animations:^{
-                gBadgeWindow.alpha = 0.0;
-            } completion:^(BOOL finished) {
-                gBadgeWindow.hidden = YES;
-                gBadgeWindow = nil;
+            gBadgeWindow = w;
+            w.hidden = NO;
+            w.alpha = 0.0;
+            [UIView animateWithDuration:0.25 animations:^{
+                w.alpha = 1.0;
             }];
-        });
-    };
 
-    if ([NSThread isMainThread]) {
-        blk();
-    } else {
-        dispatch_async(dispatch_get_main_queue(), blk);
-    }
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(showSeconds * NSEC_PER_SEC)),
+                           dispatch_get_main_queue(), ^{
+                [UIView animateWithDuration:0.35 animations:^{
+                    gBadgeWindow.alpha = 0.0;
+                } completion:^(BOOL finished) {
+                    gBadgeWindow.hidden = YES;
+                    gBadgeWindow = nil;
+                }];
+            });
+        } @catch (__unused NSException *e) {
+            gBadgeWindow = nil;
+        }
+    });
 }
 
 // ── 设置面板入口：三指双击 ──
@@ -140,6 +142,61 @@ static void XCInstallPrefsGesture(void) {
     });
 }
 
+// ── 崩溃自愈 ──
+//  启动时写 marker，正常起来后清掉。下次启动若发现 marker 还在，
+//  说明上次崩了 → 自动降级（先关 JSON 清洗，再关抓包），保证能进 App。
+static NSString *XCMarkerPath(void) {
+    return [[XCDiag logDirPath] stringByAppendingPathComponent:@"launching.marker"];
+}
+
+static NSString *XCCrashCountPath(void) {
+    return [[XCDiag logDirPath] stringByAppendingPathComponent:@"crash.count"];
+}
+
+static void XCEnsureDir(void) {
+    [[NSFileManager defaultManager] createDirectoryAtPath:[XCDiag logDirPath]
+                             withIntermediateDirectories:YES
+                                              attributes:nil
+                                                   error:NULL];
+}
+
+static NSInteger XCConsumeCrashCount(void) {
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSInteger n = 0;
+
+    NSString *s = [NSString stringWithContentsOfFile:XCCrashCountPath()
+                                            encoding:NSUTF8StringEncoding
+                                               error:NULL];
+    if (s.length) n = s.integerValue;
+
+    if ([fm fileExistsAtPath:XCMarkerPath()]) {
+        n += 1;                                     // 上次写了标记没清掉 → 崩过
+        [fm removeItemAtPath:XCMarkerPath() error:NULL];
+    }
+
+    XCEnsureDir();
+    [[NSString stringWithFormat:@"%ld", (long)n]
+        writeToFile:XCCrashCountPath() atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+    return n;
+}
+
+static void XCResetCrashCount(void) {
+    XCEnsureDir();
+    [@"0" writeToFile:XCCrashCountPath() atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+}
+
+static void XCBeginLaunchMarker(void) {
+    XCEnsureDir();
+    [@"1" writeToFile:XCMarkerPath() atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+}
+
+static void XCEndLaunchMarker(void) {
+    [[NSFileManager defaultManager] removeItemAtPath:XCMarkerPath() error:NULL];
+}
+
+/// App 是否已经正常起来。起来之前不做任何数据改写，避免弄坏早期初始化。
+static BOOL gAppReady = NO;
+
 
 %group XCGroup
 
@@ -157,22 +214,28 @@ static void XCInstallPrefsGesture(void) {
         return obj;
     }
 
-    // 抓包记录
-    if (XC_CFG.captureNet) {
-        [XCDiag recordJSON:obj
-                    source:[NSString stringWithFormat:@"NSJSONSerialization (%lu B)",
-                            (unsigned long)data.length]];
-    }
-
-    // 促销节点清洗
-    if (XC_CFG.scrubPromoJSON && XCLooksLikeAPIResponse(obj)) {
-        NSUInteger removed = 0;
-        id scrubbed = [XCJSONScrubber scrubJSON:obj removed:&removed];
-        if (removed > 0) {
-            [XCDiag log:@"[清洗] 从接口 JSON 移除 %lu 个促销节点", (unsigned long)removed];
-            XCLog(@"scrub JSON: removed %lu promo nodes", (unsigned long)removed);
-            return scrubbed;
+    // 整段包 @try —— 诊断/清洗绝不能把 App 搞崩
+    @try {
+        // 抓包记录
+        if (XC_CFG.captureNet) {
+            [XCDiag recordJSON:obj
+                        source:[NSString stringWithFormat:@"NSJSONSerialization (%lu B)",
+                                (unsigned long)data.length]];
         }
+
+        // 促销节点清洗：只在 App 正常起来之后做，
+        // 避免弄坏启动期的 AB 配置 / 初始化数据
+        if (XC_CFG.scrubPromoJSON && gAppReady && XCLooksLikeAPIResponse(obj)) {
+            NSUInteger removed = 0;
+            id scrubbed = [XCJSONScrubber scrubJSON:obj removed:&removed];
+            if (removed > 0) {
+                [XCDiag log:@"[清洗] 从接口 JSON 移除 %lu 个促销节点", (unsigned long)removed];
+                XCLog(@"scrub JSON: removed %lu promo nodes", (unsigned long)removed);
+                return scrubbed;
+            }
+        }
+    } @catch (__unused NSException *e) {
+        // 出问题就原样返回
     }
 
     return obj;
@@ -281,22 +344,6 @@ static void XCInstallPrefsGesture(void) {
         [XCDiag log:@"[请求] GET %@", url.absoluteString];
     }
     return %orig;
-}
-
-%end
-
-
-// ═════════════════════════════════════════════════════════════
-// D1 诊断层：NSURLConnection（老式接口）
-// ═════════════════════════════════════════════════════════════
-%hook NSURLConnection
-
-+ (NSData *)sendSynchronousRequest:(NSURLRequest *)request
-                 returningResponse:(NSURLResponse **)response
-                             error:(NSError **)error {
-    NSData *data = %orig;
-    XCRecordHTTP(request, data, (response ? *response : nil), (error ? *error : nil));
-    return data;
 }
 
 %end
@@ -764,14 +811,49 @@ static void XCInstallPrefsGesture(void) {
 %ctor {
     @autoreleasepool {
         %init(XCGroup);
-        [XC_CFG load];
 
-        [XCDiag log:@"=== XiaocanNoAds v1.3.0 已加载 ==="];
-        [XCDiag log:@"日志路径: %@", [XCDiag logFilePath]];
-        XCLog(@"XiaocanNoAds v1.3.0 loaded, log=%@", [XCDiag logFilePath]);
+        // ⚠️ %ctor 运行在 dyld 加载期：这里绝对不能碰文件系统 / UI /
+        //    NSDateFormatter，否则直接启动闪退。
+        //    所有初始化统一推迟到主队列执行。
+        dispatch_async(dispatch_get_main_queue(), ^{
+            @autoreleasepool {
+                [XC_CFG load];
+                [XCDiag shared].captureEnabled = XC_CFG.captureNet;
 
-        XCInstallPrefsGesture();
+                // ── 崩溃自愈：上次崩过就自动降级，保证能进 App ──
+                NSInteger crashes = XCConsumeCrashCount();
+                if (crashes >= 1 && XC_CFG.scrubPromoJSON) {
+                    XC_CFG.scrubPromoJSON = NO;
+                    [XC_CFG save];
+                }
+                if (crashes >= 2 && XC_CFG.captureNet) {
+                    XC_CFG.captureNet = NO;
+                    [XCDiag shared].captureEnabled = NO;
+                    [XC_CFG save];
+                }
 
-        XCShowBadge(@"小蚕去广告 v1.3.0 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启", 8.0);
+                XCBeginLaunchMarker();
+
+                NSString *badge = @"小蚕去广告 v1.3.1 已加载 ✓\n三指双击屏幕打开设置 · 日志已开启";
+                if (crashes >= 1) {
+                    badge = [NSString stringWithFormat:
+                             @"小蚕去广告 v1.3.1 已加载 ✓\n上次启动异常，已自动降级（第 %ld 次）",
+                             (long)crashes];
+                }
+                XCShowBadge(badge, 8.0, 2.5);
+
+                XCInstallPrefsGesture();
+
+                [XCDiag log:@"=== XiaocanNoAds v1.3.1 已加载 (crashes=%ld) ===", (long)crashes];
+
+                // 撑过启动期就算成功：清掉崩溃标记
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8.0 * NSEC_PER_SEC)),
+                               dispatch_get_main_queue(), ^{
+                    gAppReady = YES;
+                    XCEndLaunchMarker();
+                    XCResetCrashCount();
+                });
+            }
+        });
     }
 }

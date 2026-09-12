@@ -38,15 +38,11 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
 - (instancetype)init {
     self = [super init];
     if (self) {
+        // ⚠️ 只做最轻量的事：创建队列 + 设默认值。
+        //    绝不在 dyld 加载期碰文件系统或 NSDateFormatter，否则启动闪退。
         _q = dispatch_queue_create("com.xiaocan.noads.diag", DISPATCH_QUEUE_SERIAL);
         _captureEnabled = YES;
         _captureJSON    = YES;
-
-        _fmt = [[NSDateFormatter alloc] init];
-        _fmt.dateFormat = @"HH:mm:ss.SSS";
-
-        _dayFmt = [[NSDateFormatter alloc] init];
-        _dayFmt.dateFormat = @"yyyy-MM-dd HH:mm:ss";
     }
     return self;
 }
@@ -58,12 +54,9 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
         NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *base = docs.firstObject;
     if (base.length == 0) base = NSTemporaryDirectory();
-    NSString *dir = [base stringByAppendingPathComponent:kXCDiagDirName];
-    [[NSFileManager defaultManager] createDirectoryAtPath:dir
-                             withIntermediateDirectories:YES
-                                              attributes:nil
-                                                   error:NULL];
-    return dir;
+    // 注意：这里不创建目录（可能在 dyld 加载期被调用）。
+    //       目录创建统一放在 _append: 的异步块里。
+    return [base stringByAppendingPathComponent:kXCDiagDirName];
 }
 
 + (NSString *)logFilePath {
@@ -93,11 +86,27 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
 
 #pragma mark - Internal write
 
-- (void)_append:(NSString *)text {
+- (void)_append:(NSString *)text at:(NSDate *)date {
     if (text.length == 0) return;
 
     dispatch_async(_q, ^{
+        // ── 懒创建格式化器（此时已脱离 dyld 加载期）──
+        if (self->_fmt == nil) {
+            self->_fmt = [[NSDateFormatter alloc] init];
+            self->_fmt.dateFormat = @"HH:mm:ss.SSS";
+
+            self->_dayFmt = [[NSDateFormatter alloc] init];
+            self->_dayFmt.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+        }
+
+        // ── 懒创建目录 + 文件 ──
         if (self->_fh == nil) {
+            NSString *dir = [XCDiag logDirPath];
+            [[NSFileManager defaultManager] createDirectoryAtPath:dir
+                                     withIntermediateDirectories:YES
+                                                      attributes:nil
+                                                           error:NULL];
+
             NSString *path = [XCDiag logFilePath];
             NSFileManager *fm = [NSFileManager defaultManager];
             if (![fm fileExistsAtPath:path]) {
@@ -105,13 +114,16 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
             }
             self->_fh = [NSFileHandle fileHandleForWritingAtPath:path];
             [self->_fh seekToEndOfFile];
-            self->_written = [XCDiag logSize];
+
+            NSDictionary *attr = [fm attributesOfItemAtPath:path error:NULL];
+            self->_written = attr.fileSize;
 
             NSString *head = [NSString stringWithFormat:
                 @"\n===== XiaocanNoAds 诊断日志 =====\n"
-                @"时间: %@\n"
+                @"启动: %@\n"
                 @"进程: %@\n"
-                @"=====\n\n", [self->_dayFmt stringFromDate:[NSDate date]],
+                @"=====\n\n",
+                [self->_dayFmt stringFromDate:date],
                 [NSProcessInfo processInfo].processName];
             NSData *hd = [head dataUsingEncoding:NSUTF8StringEncoding];
             [self->_fh writeData:hd];
@@ -119,12 +131,12 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
         }
 
         if (self->_written >= kXCDiagMaxBytes) {
-            [self->_fh writeData:[@"\n[日志已达 8MB 上限，后续内容不再记录]\n"
-                                    dataUsingEncoding:NSUTF8StringEncoding]];
             return;
         }
 
-        NSData *d = [text dataUsingEncoding:NSUTF8StringEncoding];
+        NSString *ts = [self->_fmt stringFromDate:date];
+        NSString *line = [NSString stringWithFormat:@"[%@] %@\n", ts, text];
+        NSData *d = [line dataUsingEncoding:NSUTF8StringEncoding];
         [self->_fh writeData:d];
         self->_written += d.length;
     });
@@ -142,8 +154,8 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
 
 + (void)logLine:(NSString *)line {
     XCDiag *s = [self shared];
-    NSString *ts = [s->_fmt stringFromDate:[NSDate date]];
-    [s _append:[NSString stringWithFormat:@"[%@] %@\n", ts, line]];
+    // 时间戳格式化推迟到异步块里，避免在 dyld 加载期创建 NSDateFormatter
+    [s _append:line at:[NSDate date]];
 }
 
 #pragma mark - HTTP
@@ -218,10 +230,16 @@ static const NSUInteger kXCDiagBodyPreview = 6000;   // 每个 body 最多记录
         if (d.length > 0) {
             desc = [[NSString alloc] initWithData:d encoding:NSUTF8StringEncoding];
         }
-    } @catch (__unused NSException *e) {}
+    } @catch (__unused NSException *e) {
+        desc = nil;
+    }
 
     if (desc.length == 0) {
-        desc = [json description];
+        @try {
+            desc = [json description];
+        } @catch (__unused NSException *e) {
+            desc = @"<无法序列化>";
+        }
     }
 
     NSMutableString *m = [NSMutableString string];
